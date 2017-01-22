@@ -1,0 +1,17 @@
+#!/bin/bash
+
+
+echo
+
+for threads in 1 2 4 8 16 32
+do
+	echo ================================================================================ >> "output.txt"
+	echo Threads $threads >> "output.txt"
+	echo Threads $threads 
+	export OMP_SET_NUM_THREADS=$threads
+for i in 32 33 1024 1025 2048 2049
+do
+	./rbgs $i $i 500 >> "output.txt"
+	echo size $i
+done
+done
