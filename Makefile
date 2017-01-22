@@ -1,4 +1,4 @@
-CXXFLAGS = -std=c++11 -fopenmp -Werror -Wall -Wextra -Wshadow -O3 -DNDEBUG
+CXXFLAGS = -std=c++11 -fopenmp -O3 -DNDEBUG
 CXX = mpic++
 
 INCLUDES =
@@ -25,7 +25,7 @@ solve: $(HEAD1).h $(HEAD2).cpp
 	$(CXX) -c $(CXXFLAGS) $(INCLUDES) $(HEAD2).cpp -o $(HEAD2)
 	
 test:
-	mpirun -np 2 ./cg 1023 1023 1 -1
+	mpirun -np 2 ./cg 100 100 2 -1 10 0.1 10 0.5 2
 
 clean:
 	@$(RM) -rf *.o *.txt 

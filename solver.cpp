@@ -86,7 +86,10 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	double dtz =0 ; //stores inner product d'z
 	//only solver to be timed
 	timer.reset();
-	double temp = 0; 
+	double temp = 0;
+	if (cart_rank == 0)
+	//write(u, "solution.txt");
+	
 	//CG Algorithm starts from here
 	for(y=1; y <= n_y-1 ; ++y){
 	for(x=1; x <= n_x-1 ; ++x){
@@ -111,7 +114,7 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	res = delta_1 ;		
 	
 	/*  if(cart_rank==0)
-	std::cout<<res<<std::endl;  */
+	std::cout<<res<<std::endl; */ 
 	
 	if (sqrt(res) <= eps)
 	  break;
@@ -131,8 +134,8 @@ void solver(Grid &u,Grid &f,int c,double eps){
         if (cart_rank==0)
 	std::cout << "Time Taken " << time << std::endl;
 	
-	/* if (cart_rank == 0)
-	write(u, "solution.txt"); */
+	/*if (cart_rank == 0)
+	write(u, "solution.txt");*/ 
  
 	if(cart_rank ==0)
 		{
