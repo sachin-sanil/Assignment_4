@@ -36,7 +36,7 @@ void set_rhs(Grid &u_old, double tau,double k, double alpha){
 	for (j=0; j <= n_y ; j=j+n_y)
      for(i=0; i!= n_x+1; ++i)
 		{
-			std::cout<< i << " " << j <<std::endl;
+			//std::cout<< i << " " << j <<std::endl;
 			u_old(i,j) += tau*(1-alpha)*k*((- 2*u_old(i,j)/(h_x*h_x) - 2*u_old(i,j)/(h_y*h_y)));
 		}
 	
@@ -44,7 +44,7 @@ void set_rhs(Grid &u_old, double tau,double k, double alpha){
 	for(j=1; j!=n_y;++j)
 		for(i=0;i<=n_x; i=i+n_x)
 		{
-			std::cout<< i << " " << j <<std::endl;
+			//std::cout<< i << " " << j <<std::endl;
 			u_old(i,j) += tau*(1-alpha)*k*((- 2*u_old(i,j)/(h_x*h_x) - 2*u_old(i,j)/(h_y*h_y)));
 		}
 }
