@@ -8,7 +8,7 @@
 void set_init_bc(Grid &u){
   unsigned int x=0,y=0;
   double h_x=u.h_x, h_y=u.h_y;
-  unsigned int n_x=u.n_x, n_y=u.n_y;
+  double n_x=u.n_x, n_y=u.n_y;
 
 
   //loop over y= n_y (ngp_y-1)

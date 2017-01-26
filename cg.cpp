@@ -37,10 +37,10 @@ int main(int argc, char *argv[]){
   
   //Timestep iteration starts from here
 	// for (i =0 ; i <= timesteps; i =i+tau){ 
-  set_rhs(u_old,tau, k, alpha);
+  //set_rhs(u_old,tau, k, alpha);
   
 //RBGS
-  //solver(u_new,u_old,c,eps);
+  solver(u_new,u_old,c,eps);
 	//}
   
 //write grid

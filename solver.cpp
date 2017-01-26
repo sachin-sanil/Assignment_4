@@ -87,8 +87,8 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	//only solver to be timed
 	timer.reset();
 	double temp = 0;
-	if (cart_rank == 0)
-	//write(u, "solution.txt");
+	//if (cart_rank == 0)
+	write(f, "solution.txt");
 	
 	//CG Algorithm starts from here
 	for(y=1; y <= n_y-1 ; ++y){
@@ -137,7 +137,7 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	/*if (cart_rank == 0)
 	write(u, "solution.txt");*/ 
  
-	if(cart_rank ==0)
+	/*if(cart_rank ==0)
 		{
 		std::ofstream bout;
 		bout.open("solution.txt");
@@ -186,7 +186,7 @@ void solver(Grid &u,Grid &f,int c,double eps){
 						cout<<std::endl;
 					cout.close();
 		
-		}
+		}*/
 
 	r.release(); z.release(); d.release();
 }
