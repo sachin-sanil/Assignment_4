@@ -3,13 +3,11 @@
 #include <math.h>
 #include <fstream>
 #include <vector>
-
-
+void write1(Grid &u,std::string output_file);
 void set_init_bc(Grid &u){
   unsigned int x=0,y=0;
   double h_x=u.h_x, h_y=u.h_y;
   double n_x=u.n_x, n_y=u.n_y;
-
 
   //loop over y= n_y (ngp_y-1)
 	for(y=0;y!=n_y+1;++y)
@@ -19,56 +17,43 @@ void set_init_bc(Grid &u){
     u(x,y)=sin(pi*x*h_x)*sin(pi*y*h_y);
     //std::cout<< i*u.h_x << " " << u.n_y << " " << u(i,j) << std::endl;
   }      
+  //write1(u,"u_init.txt");
 }
 
-void set_rhs(Grid &u_old, double tau,double k, double alpha){
- unsigned int i=0,j=0;
- unsigned int n_x=u_old.n_x, n_y=u_old.n_y;
- double h_x=u_old.h_x, h_y=u_old.h_y;
-
+void set_rhs(Grid &f,Grid &u,double &alpha, double &tau, double &k){
+unsigned int x=0,y=0;
+  //double h_x=u.h_x, h_y=u.h_y;
+  double n_x=u.n_x, n_y=u.n_y;
   //std::cout << "setting rhs" << std::endl;
-  for (j=1; j != n_y; ++j)
-     for(i=1; i!= n_x; ++i)
+  for(y=1;y<n_y;++y)
+	  for (x=1; x < n_x ; ++x)
         {    
-        u_old(i,j) += tau*(1-alpha)*k*((u_old(i-1,j) + u_old(i+1,j))/(h_x*h_x) + (u_old(i,j-1) + u_old(i,j+1))/(h_y*h_y) - 2*u_old(i,j)/(h_x*h_x) - 2*u_old(i,j)/(h_y*h_y));
+        f(x,y) = u(x,y) + k*(1-alpha)*tau*(((u(x+1,y) + u(x-1,y)-2*u(x,y))*n_x*n_x) + ((u(x,y+1)+u(x,y-1)-2*u(x,y))*n_y*n_y));
         }   
-
-	for (j=0; j <= n_y ; j=j+n_y)
-     for(i=0; i!= n_x+1; ++i)
-		{
-			//std::cout<< i << " " << j <<std::endl;
-			u_old(i,j) += tau*(1-alpha)*k*((- 2*u_old(i,j)/(h_x*h_x) - 2*u_old(i,j)/(h_y*h_y)));
-		}
-	
-	// update the lateral boundary
-	for(j=1; j!=n_y;++j)
-		for(i=0;i<=n_x; i=i+n_x)
-		{
-			//std::cout<< i << " " << j <<std::endl;
-			u_old(i,j) += tau*(1-alpha)*k*((- 2*u_old(i,j)/(h_x*h_x) - 2*u_old(i,j)/(h_y*h_y)));
-		}
+		//std::cout << x << " "<< y << std::endl;
+		//std::cout << alpha << " "<< tau << " "<< k <<std::endl;
+		//write1(f,"u_rhs.txt");
+		//write1(u,"u_init.txt");
 }
 
+//////////////////////////////////////////////////////////////////////////
 
-
-//////////////SUM////////////////////////////////////////
-// SUM(PARENT_ARG, SUM_ARG, CONST_WEIGHT)
-
-void sum(Grid &a, Grid &b, Grid &c, const double & alpha) // performs a = b + alpha *c
-{
-	
-
-
-	double * x, *y, *z;
-	x = a.vec;
-	y = b.vec;
-	z = c.vec;
-
-	for (size_t j = 0; j< (a.size); ++j)
-		x[j] = y[j] + alpha * z[j];
-
-
+void write1(Grid &u,std::string output_file){
+unsigned int i=0,j=0;
+ //initialize output_file
+ std::ofstream file(output_file);
+ //loop over j ... n_y
+ for (j=0; j != u.n_y+1; ++j){
+    //loop over i ... n_x
+    for (i=0; i != u.n_x+1; ++i)
+    {    
+      //print x y value
+     file << i*u.h_x << " " << j*u.h_y << " " << u(i,j) << std::endl;     
+    }         
+ } 
+ file.close();
 }
+
 
 ////////////////////////////////////////////////////////
 

@@ -12,8 +12,8 @@
 #define pi 3.1415926535897932
 
 double dot(Grid &u, Grid &d);
-double norm_squared(Grid &u);
-void mult_A(Grid &u, Grid &d);
+//double norm_squared(Grid &u);
+void mult_A(Grid &u, Grid &v,double &alpha, double &tau, double &k) ;
 void sum(Grid& u, double alpha, Grid& d);
 void sum(Grid&d, Grid& r, double beta);
 void write(Grid &u,std::string output_file);
@@ -34,7 +34,7 @@ int down_send, up_send,down_rec, up_rec;
 
 //c here is maximum number of cg iterations.
 
-void solver(Grid &u,Grid &f,int c,double eps){
+void solver(Grid &u,Grid &f,int c,double eps,double &alpha, double &tau, double &k){
 	
 	
 	dim[0] = num_proc;
@@ -51,6 +51,10 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	q = (u.n_y-1)/num_proc;	
 	rem = ((int)u.n_y-1)%num_proc;
 	
+	int elem_proc, disp_proc;
+	
+	int recvcounts[num_proc], disps[num_proc];
+	
 	MPI_Cart_coords(comm_cart, cart_rank, 2, coord);
 //	std::cout<<coord[0]<<" "<<cart_rank<<std::endl;
 	
@@ -65,6 +69,9 @@ void solver(Grid &u,Grid &f,int c,double eps){
 				fin = (coord[0]+1)*q+rem;					
 			}
 		//std:: cout << coord[0] << " " << coord[1] << " " << init << " " << fin << std::endl;
+	elem_proc=(fin-init+1)*(u.n_x+1);
+	disp_proc=init*(u.n_x+1);
+	//std::cout << init << " " << fin << " " << elem_proc << " for rank " << cart_rank << std::endl;
 	
 	unsigned int n_x = u.n_x;
 	unsigned int n_y = u.n_y;
@@ -72,28 +79,25 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	//int ngp_y = n_y+1;
 
 	//Grid res(n_x,n_y);
-	double numer = ((double)(n_x*n_x)*0.5 + (double)(n_y*n_y)*2 + (4*pi*pi));  
+	double numer = ((double)(n_x*n_x)*2 + (double)(n_y*n_y)*2);  
 	//double denom = 1.0/numer;           // 1/(2/h_x*h_x  + 2/h_y*h_y + k*k)
 	siwir::Timer timer;
 	double time = 100.0;
 	unsigned int x=1, y=1;
-	double _nx2 = (double)n_x*(double)n_x*0.25; 
+	double _nx2 = (double)n_x*(double)n_x; 
 	double _ny2 = (double)n_y*(double)n_y;
 
 	Grid r(n_x,n_y), z(n_x,n_y),d(n_x,n_y); // Grids initialized Just check if these are resized properly
-	double delta_0=0, delta_1=0, alpha=0, beta=0; // Variables used in CG
+	double delta_0=0, delta_1=0, alpha1=0, beta=0; // Variables used in CG
 	double res = 0; // norm of residual ||r||2
 	double dtz =0 ; //stores inner product d'z
 	//only solver to be timed
 	timer.reset();
-	double temp = 0;
-	//if (cart_rank == 0)
-	write(f, "solution.txt");
-	
+	double temp = 0; 
 	//CG Algorithm starts from here
 	for(y=1; y <= n_y-1 ; ++y){
 	for(x=1; x <= n_x-1 ; ++x){
-			temp = f(x,y)+ (_nx2 * (u(x-1,y)+u(x+1,y))) +  (_ny2 * (u(x,y-1)+u(x,y+1)) - (numer*u(x,y))); // r = f-Au
+			temp = f(x,y)+ ((alpha*k*tau)*((_nx2 * (u(x-1,y)+u(x+1,y))) +  (_ny2 * (u(x,y-1)+u(x,y+1))) - (numer*u(x,y))))- u(x,y); // r = f-Au
 			r(x,y) = temp;
 			d(x,y) = temp; //d = r	
 	}
@@ -101,20 +105,18 @@ void solver(Grid &u,Grid &f,int c,double eps){
 
 	delta_0 = dot(r,r);
 	res = delta_0; 
-
+	
 	if (sqrt(res) > eps) //exit criterion check if residual is less than some epsilon
 	{
 	for(int i=0; i<c; ++i){
-	mult_A(z,d); 
-	dtz = dot(d,z);
-	alpha = delta_0/dtz;
-	sum(u,alpha,d);
-	sum(r,-alpha,z);
-	delta_1 = dot(r,r);
-	res = delta_1 ;		
-	
-	/*  if(cart_rank==0)
-	std::cout<<res<<std::endl; */ 
+	MPI_Barrier(comm_cart);
+	mult_A(z,d,alpha,tau,k);MPI_Barrier(comm_cart);
+	dtz = dot(d,z); MPI_Barrier(comm_cart);
+	alpha1 = delta_0/dtz; MPI_Barrier(comm_cart);
+	sum(u,alpha1,d); MPI_Barrier(comm_cart);
+	sum(r,-alpha1,z); MPI_Barrier(comm_cart);
+	delta_1 = dot(r,r); MPI_Barrier(comm_cart);
+	res = delta_1 ; MPI_Barrier(comm_cart);
 	
 	if (sqrt(res) <= eps)
 	  break;
@@ -126,18 +128,32 @@ void solver(Grid &u,Grid &f,int c,double eps){
 	} 
 	//CG Algorithm ends here
 	
+	
 	//gather u for all processors
-	//MPI_Gather(&(u.vec[(int)(init*(u.n_x +1))]),(fin-init+1)*(u.n_x+1),MPI_DOUBLE,u.vec,(u.n_x+1)*(u.n_y+1),MPI_DOUBLE,0,comm_cart);
+	MPI_Barrier(comm_cart);
+	MPI_Allgather(&elem_proc, 1, MPI_INT, &(recvcounts), 1, MPI_INT, comm_cart);
+	MPI_Allgather(&disp_proc, 1, MPI_INT, &(disps), 1, MPI_INT, comm_cart);
+/* 	if (cart_rank==0){
+	//print disp_proc
+		for (auto i=0; i!=num_proc; i++)
+			std::cout<<disps[i]<<" "<<recvcounts[i] << " ";
+		std::cout << std::endl;
+	} */
 
+	
 	time = std::min(time, timer.elapsed());
 	
-        if (cart_rank==0)
+	//std::cout << cart_rank << " " << disp_proc+elem_proc-1 << " " << u.vec[0] << std::endl;
+	MPI_Barrier(comm_cart);
+	MPI_Allgatherv(&(u.vec[disp_proc]),elem_proc, MPI_DOUBLE, &(u.vec[0]), recvcounts, disps, MPI_DOUBLE, comm_cart);
+
+if (cart_rank==0)
 	std::cout << "Time Taken " << time << std::endl;
 	
-	/*if (cart_rank == 0)
-	write(u, "solution.txt");*/ 
+if (cart_rank==0)
+	write(u, "solution1.txt");
  
-	/*if(cart_rank ==0)
+if(cart_rank ==0)
 		{
 		std::ofstream bout;
 		bout.open("solution.txt");
@@ -186,7 +202,7 @@ void solver(Grid &u,Grid &f,int c,double eps){
 						cout<<std::endl;
 					cout.close();
 		
-		}*/
+		}
 
 	r.release(); z.release(); d.release();
 }
@@ -201,25 +217,18 @@ double dot(Grid &u, Grid &v) {
 	return res;
 }
 
-double norm_squared(Grid &u) {
-	double res = 0;
-	for (unsigned int i = 0; i<u.size; i++) {
-		res += u.vec[i] * u.vec[i];
-	}
-	return res;
-
-}
 
 
-void mult_A(Grid &u, Grid &v) { //does. u = A*d
+void mult_A(Grid &u, Grid &v,double &alpha, double &tau, double &k) { //does. u = A*d
 
 	//Functioning variables
 	assert(u.size == v.size);
-	double numer = ((double)(u.n_x*u.n_x)*0.5 + (double)(u.n_y*u.n_y) * 2 + (4 * pi*pi));
+	double numer = ((double)(u.n_x*u.n_x)*2 + (double)(u.n_y*u.n_y) * 2) ;
 	//double denom = 1.0 / numer;
 	double d_nx2 = u.n_x*u.n_x*0.25;
 	double d_ny2 = u.n_y*u.n_y;
 	unsigned int n_x=u.n_x;
+	double aux1=0.0, aux2=0.0, aux3=0.0,aux4=0.0;
 	
 	//std::cout<<&(v.vec[up_send])<<"error adress"<<std::endl;
 	
@@ -238,7 +247,15 @@ void mult_A(Grid &u, Grid &v) { //does. u = A*d
 	//only inner grid points are touched
 	for (unsigned int y = init; y <= fin; y = y + 1)
 		for (unsigned int x = 1; x < v.n_x; x = x + 1) {
-			u.vec[(y*(n_x+1) + x)] = numer*v.vec[(y*(n_x+1) + x)] - (d_nx2 * (v.vec[(y*(n_x+1)+x-1)] + v.vec[(y*(n_x+1) + x+1)])) - (d_ny2 * (v.vec[((y-1)*(n_x+1) + x)] + v.vec[((y+1)*(n_x+1) + x)]));
+			aux1 = v.vec[(y*(n_x+1) + x)];
+			aux2 = (numer*v.vec[(y*(n_x+1) + x)]);
+			aux3 = (d_nx2 * (v.vec[(y*(n_x+1)+x-1)] + v.vec[(y*(n_x+1) + x+1)]));
+			aux4 = (d_ny2 * (v.vec[((y-1)*(n_x+1) + x)] + v.vec[((y+1)*(n_x+1) + x)]));
+			
+			u.vec[(y*(n_x+1) + x)] = aux1 -(alpha*k*tau)* (aux3+aux4-aux2);
+			
+			
+			//u.vec[(y*(n_x+1) + x)] = v.vec[(y*(n_x+1) + x)]-((alpha*k*tau)((-numer*v.vec[(y*(n_x+1) + x)]) + (d_nx2 * (v.vec[(y*(n_x+1)+x-1)] + v.vec[(y*(n_x+1) + x+1)])) + (d_ny2 * (v.vec[((y-1)*(n_x+1) + x)] + v.vec[((y+1)*(n_x+1) + x)]))));
 		}
 
 }
@@ -253,18 +270,3 @@ void sum(Grid&d, Grid& r, double beta) {
 		d.vec[i] = r.vec[i] + beta*d.vec[i];
 }
 
-void write(Grid &u,std::string output_file){
-unsigned int i=0,j=0;
- //initialize output_file
- std::ofstream file(output_file);
- //loop over j ... n_y
- for (j=0; j != u.n_y+1; ++j){
-    //loop over i ... n_x
-    for (i=0; i != u.n_x+1; ++i)
-    {    
-      //print x y value
-     file << i*u.h_x << " " << j*u.h_y << " " << u(i,j) << std::endl;     
-    }         
- } 
- file.close();
-}
